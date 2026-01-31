@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "seedream-remote": {
+      "type": "http",
+      "url": "https://seedream-mcp-server-production.up.railway.app/mcp"
+    },
+    "coingecko": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.api.coingecko.com/mcp"
+      ]
+    },
+    "binance": {
+      "command": "npx",
+      "args": ["-y", "@snjyor/binance-mcp@latest"]
+    }
+  }
+}
