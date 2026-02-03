@@ -24,6 +24,9 @@ export function registerGenerateTool(server: McpServer): void {
       title: "Generate Image from Text",
       description: `Generate images from a text description using SeeDream 4.5.
 
+⚠️ **CLAUDE.AI USERS**: This tool WILL TIMEOUT on Claude.ai (takes 30-60 seconds).
+   Use "seedream_submit" instead with mode="text" for Claude.ai compatibility.
+
 This is the primary tool for creating images from scratch.
 **Default: Generates 4 images per prompt** using streaming for fast response.
 
