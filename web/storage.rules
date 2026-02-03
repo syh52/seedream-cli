@@ -1,0 +1,20 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Images folder - users can only write to their own folder
+    match /images/{userId}/{allPaths=**} {
+      // Anyone can read images
+      allow read: if true;
+      // Only authenticated users can write to their own folder
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // References folder - for reference images in image-to-image mode
+    match /references/{userId}/{allPaths=**} {
+      // Anyone can read (needed for Cloud Function to access)
+      allow read: if true;
+      // Only authenticated users can write to their own folder
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

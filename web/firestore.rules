@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Images collection: all authenticated users can read, users can write their own
+    match /images/{docId} {
+      // Anyone can read all images (for Explore page)
+      allow read: if true;
+
+      // Authenticated users can create images with their own userId
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+
+      // Users can update/delete their own images
+      allow update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // User profiles (if needed in future)
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Generation tasks: users can only access their own tasks
+    match /tasks/{taskId} {
+      // Users can read their own tasks
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // Users can create tasks with their own userId
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+
+      // Users can update/delete their own tasks
+      allow update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+  }
+}
