@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Syne, Space_Mono } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { GlobalInputBar } from "@/components/layout/GlobalInputBar";
+import { TabBar } from "@/components/layout/TabBar";
 import "./globals.css";
 
 // Primary display font - geometric, modern, distinctive
@@ -32,9 +34,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${syne.variable} ${spaceMono.variable} font-sans antialiased bg-zinc-950 text-white`}
+        className={`${syne.variable} ${spaceMono.variable} font-sans antialiased bg-[#0d0e12] text-white pb-28`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <GlobalInputBar />
+          <TabBar />
+        </Providers>
       </body>
     </html>
   );
