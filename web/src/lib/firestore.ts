@@ -54,6 +54,7 @@ export function subscribeToGallery(
     q = query(
       collection(db, ENTRIES),
       where('liked', '==', true),
+      where('status', '==', 'done'),
       where('deleted', '==', false),
       orderBy('createdAt', 'desc')
     )
