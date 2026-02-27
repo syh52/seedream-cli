@@ -67,11 +67,11 @@ seedream_generate → 同步返回图片 URL → 自动同步到 Firebase
 
 **Claude.ai / MCP Submit**:
 ```
-seedream_submit → 创建任务到 Firestore (status='pending')
+seedream_submit → 创建 Entry 到 Firestore (status='active')
                            ↓
-        Cloud Function (processGenerationTask) 处理
+        Cloud Function (onDocumentCreated) 处理
                            ↓
-        生成图片 → 上传 Storage → 更新任务状态
+        生成图片 → 上传 Storage → 更新 Entry (status='done')
                            ↓
         前端通过 Firestore 实时订阅获取更新
                            ↓
@@ -91,15 +91,15 @@ seedream_submit → 创建任务到 Firestore (status='pending')
 - 并行下载（最多 4 张）
 - Base64 编码缓存（LRU, 5 分钟 TTL）
 
-**services/firebase.ts** - Firebase 集成:
-- `syncImageToFirebase()` - 上传 Storage + 写入 `images` 集合
-- `createTaskWithId()` - 创建任务记录（供 Cloud Function 处理）
+**services/firebase.ts** - Firebase 集成 (统一 `entries` Collection):
+- `syncImageToFirebase()` - 上传 Storage + 创建 `done` Entry (via `createEntryFromSync()`)
+- `createEntryForProcessing()` - 创建 `active` Entry（供 Cloud Function 处理）
 - 所有写入必须过滤 `undefined` 值（Firestore 限制）
 
-**tools/submit.ts** - Claude.ai 兼容 (v2.3.0):
-- 只创建任务到 Firestore，立即返回
-- Cloud Function 自动处理任务（9 分钟超时）
-- 更可靠、更简单、无 OOM 风险
+**tools/submit.ts** - Claude.ai 兼容:
+- 创建 `active` Entry 到 Firestore，立即返回
+- Cloud Function 自动处理（9 分钟超时）
+- 返回 `entry_id` 供追踪
 
 ## API 最佳实践
 

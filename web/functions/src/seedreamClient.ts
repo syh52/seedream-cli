@@ -1,10 +1,10 @@
 /**
  * SeeDream API 客户端
- * 封装 BytePlus Ark SeeDream 4.5 模型调用，支持流式处理
+ * 封装 BytePlus Ark SeeDream 5.0-lite 模型调用，支持流式处理
  */
 
 const API_ENDPOINT = 'https://ark.ap-southeast.bytepluses.com/api/v3/images/generations'
-const MODEL_ID = 'ep-20260123220136-f8bx7'
+const MODEL_ID = 'ep-20260226145427-hdhqc'
 
 // Map user-friendly size names to API format
 // Reference: https://docs.byteplus.com/en/docs/ModelArk/1541523
@@ -12,18 +12,19 @@ const SIZE_MAP: Record<string, string> = {
   // Preset resolutions (recommended)
   "2K": "2K",
   "4K": "4K",
-  // Aspect ratios with optimal pixel dimensions
+  // Aspect ratios with optimal pixel dimensions (SeeDream 5.0-lite)
   "1:1": "2048x2048",
   "4:3": "2304x1728",
   "3:4": "1728x2304",
-  "16:9": "2560x1440",
-  "9:16": "1440x2560",
+  "16:9": "2848x1600",
+  "9:16": "1600x2848",
+  "4K-9:16": "3040x5504",  // 4K vertical
   "3:2": "2496x1664",
   "2:3": "1664x2496",
-  "21:9": "3024x1296",
+  "21:9": "3136x1344",
 }
 
-export type GenerateMode = 'text' | 'image' | 'multi' | 'batch'
+export type GenerateMode = 'text' | 'image' | 'multi'
 
 export interface GenerationParams {
   prompt: string

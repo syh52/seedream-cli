@@ -9,7 +9,7 @@ import { CompactInput } from '@/components/create/CompactInput'
 import type { GenerateMode } from '@/types'
 
 export function GlobalInputBar() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const { submitEntry } = useCreateEntry()
   const { remixData, clearRemix } = useRemix()
   const router = useRouter()
@@ -21,14 +21,15 @@ export function GlobalInputBar() {
   }) => {
     await submitEntry(params)
     clearRemix()
-    // If not on Create page, navigate there to see progress
+    // Navigate to Create page to see progress
     if (pathname !== '/create') {
       router.push('/create')
     }
   }, [submitEntry, clearRemix, pathname, router])
 
-  // Don't render on Create page — it has its own CompactInput with richer state
-  if (!user || pathname === '/create') return null
+  // Don't render on Create page — it has its own CompactInput
+  // Also wait for auth to settle before deciding (prevents flash)
+  if (loading || !user || pathname === '/create') return null
 
   return (
     <CompactInput

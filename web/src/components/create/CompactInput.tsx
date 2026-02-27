@@ -3,10 +3,38 @@
 import { useState, useRef, useCallback, useEffect, KeyboardEvent } from 'react'
 import Image from 'next/image'
 import { Slider } from '@/components/ui/slider'
-import { Camera, ArrowUp, X, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Camera, ArrowUp, X, ChevronDown, ChevronsUpDown, Clipboard, Copy, Eraser } from 'lucide-react'
 import type { GenerateMode } from '@/types'
 
 const SIZE_OPTIONS = ['1:1', '3:4', '4:3', '9:16', '16:9', '3:2', '2:3', '21:9', '2K', '4K', '4K-9:16'] as const
+
+/** Compress image to max 2048px longest side, JPEG quality 0.85 (~200-800KB output) */
+function compressImage(file: File, maxDim = 2048, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height)
+        width = Math.round(width * scale)
+        height = Math.round(height * scale)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Failed to load image'))
+    }
+    img.src = url
+  })
+}
 
 interface CompactInputProps {
   onSubmit: (params: {
@@ -31,7 +59,6 @@ interface CompactInputProps {
 
 export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, onRemixClear }: CompactInputProps) {
   const [prompt, setPrompt] = useState('')
-  const [expanded, setExpanded] = useState(false)
   const [referenceImages, setReferenceImages] = useState<string[]>([])
   const [size, setSize] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -41,7 +68,6 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
   })
   const [showSizePicker, setShowSizePicker] = useState(false)
   const [strength, setStrength] = useState(0.5)
-  const [submitting, setSubmitting] = useState(false)
   const [textareaExpanded, setTextareaExpanded] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -51,7 +77,7 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
     localStorage.setItem('seedream-size', size)
   }, [size])
 
-  // Remix prefill: when remixData changes (non-null), expand and populate all fields
+  // Remix prefill: when remixData changes (non-null), populate all fields
   useEffect(() => {
     if (!remixData) return
     setPrompt(remixData.prompt)
@@ -60,34 +86,28 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
     if (remixData.referenceImageUrls && remixData.referenceImageUrls.length > 0) {
       setReferenceImages(remixData.referenceImageUrls)
     }
-    setExpanded(true)
+    // Focus the textarea so user can immediately edit
+    setTimeout(() => textareaRef.current?.focus(), 100)
   }, [remixData])
 
   const mode: GenerateMode =
     referenceImages.length === 0 ? 'text' :
     referenceImages.length === 1 ? 'image' : 'multi'
 
-  const canSubmit = !disabled && !submitting && prompt.trim().length > 0
+  const canSubmit = !disabled && prompt.trim().length > 0
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(() => {
     if (!canSubmit) return
-    setSubmitting(true)
-    try {
-      await onSubmit({
-        prompt: prompt.trim(),
-        mode,
-        size,
-        referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
-        strength: mode !== 'text' ? strength : undefined,
-      })
-      setPrompt('')
-      setReferenceImages([])
-      onRemixClear?.()
-    } catch (err) {
-      console.error('Submit failed:', err)
-    } finally {
-      setSubmitting(false)
-    }
+    // Fire-and-forget: don't await, allow rapid consecutive sends
+    onSubmit({
+      prompt: prompt.trim(),
+      mode,
+      size,
+      referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+      strength: mode !== 'text' ? strength : undefined,
+    }).catch((err) => console.error('Submit failed:', err))
+    onRemixClear?.()
+    // Keep prompt and reference images for rapid re-submission
   }, [canSubmit, onSubmit, prompt, mode, size, referenceImages, strength, onRemixClear])
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -117,17 +137,60 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
     })
   }, [])
 
+  const [copyFlash, setCopyFlash] = useState(false)
+
+  const handlePaste = useCallback(async () => {
+    // clipboard.readText() not supported on iOS Safari < 16.4
+    if (navigator.clipboard?.readText) {
+      try {
+        const text = await navigator.clipboard.readText()
+        if (text) {
+          setPrompt(prev => prev + text)
+          textareaRef.current?.focus()
+          return
+        }
+      } catch { /* permission denied or not supported */ }
+    }
+    // Fallback: use execCommand('paste') via focused textarea
+    textareaRef.current?.focus()
+    document.execCommand('paste')
+  }, [])
+
+  const handleCopy = useCallback(async () => {
+    if (!prompt) return
+    try {
+      await navigator.clipboard.writeText(prompt)
+    } catch {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea')
+      ta.value = prompt
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    setCopyFlash(true)
+    setTimeout(() => setCopyFlash(false), 600)
+  }, [prompt])
+
+  const handleClear = useCallback(() => {
+    setPrompt('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = ''
+    }
+    textareaRef.current?.focus()
+  }, [])
+
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
     const maxFiles = 14
     Array.from(files).slice(0, maxFiles - referenceImages.length).forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        const base64 = ev.target?.result as string
+      compressImage(file).then(base64 => {
         setReferenceImages(prev => prev.length >= maxFiles ? prev : [...prev, base64])
-      }
-      reader.readAsDataURL(file)
+      })
     })
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [referenceImages.length])
@@ -137,7 +200,7 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
   }, [])
 
   return (
-    <div className="fixed bottom-14 left-0 right-0 z-30 bg-[#0d0e12]/95 backdrop-blur-xl border-t border-white/5">
+    <div className="fixed bottom-14 left-0 right-0 z-30 bg-[#0d0e12] border-t border-white/5">
       <input
         ref={fileInputRef}
         type="file"
@@ -186,43 +249,30 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
             <Camera className="h-5 w-5" />
           </button>
 
-          {/* Input area */}
-          <div
-            className="flex-1 min-w-0 relative"
-            onClick={() => !expanded && setExpanded(true)}
-          >
-            {expanded ? (
-              <>
-                <textarea
-                  ref={textareaRef}
-                  value={prompt}
-                  onChange={handleTextareaChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="描述你想生成的图片..."
-                  autoFocus
-                  className={`w-full px-3 py-2 pr-8 bg-zinc-800 rounded-xl
-                           text-sm text-white placeholder:text-zinc-600 resize-none
-                           focus:outline-none focus:ring-1 focus:ring-emerald-500/30
-                           transition-[min-height] duration-200
-                           ${textareaExpanded ? 'min-h-[120px] max-h-[240px]' : 'min-h-[40px] max-h-[160px]'}`}
-                  rows={textareaExpanded ? 5 : 1}
-                />
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleTextareaExpand() }}
-                  className="absolute right-1.5 top-1.5 h-6 w-6 flex items-center justify-center
-                           rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition-colors"
-                  title={textareaExpanded ? '收起' : '展开'}
-                >
-                  <ChevronsUpDown className="h-3.5 w-3.5" />
-                </button>
-              </>
-            ) : (
-              <div className="h-10 px-3 flex items-center bg-zinc-800 rounded-xl cursor-text">
-                <span className={prompt ? 'text-sm text-white truncate' : 'text-sm text-zinc-600'}>
-                  {prompt || '描述你想生成的图片...'}
-                </span>
-              </div>
-            )}
+          {/* Input area — always editable, no collapsed state */}
+          <div className="flex-1 min-w-0 relative">
+            <textarea
+              ref={textareaRef}
+              value={prompt}
+              onChange={handleTextareaChange}
+              onKeyDown={handleKeyDown}
+              placeholder="描述你想生成的图片..."
+              className={`w-full px-3 py-2 pr-9 bg-zinc-800 rounded-xl
+                       text-base text-white placeholder:text-zinc-600 resize-none
+                       focus:outline-none focus:ring-1 focus:ring-emerald-500/30
+                       transition-[min-height] duration-200
+                       ${textareaExpanded ? 'min-h-[120px] max-h-[240px]' : 'min-h-[40px] max-h-[160px]'}`}
+              rows={textareaExpanded ? 5 : 1}
+            />
+            {/* Expand/collapse toggle stays inside textarea */}
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleTextareaExpand() }}
+              className="absolute right-1.5 top-1.5 h-7 w-7 flex items-center justify-center
+                       rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-white/5 transition-colors"
+              title={textareaExpanded ? '收起' : '展开'}
+            >
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+            </button>
           </div>
 
           {/* Submit button */}
@@ -239,9 +289,8 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
           </button>
         </div>
 
-        {/* Expanded options */}
-        {expanded && (
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
+        {/* Options row */}
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
             {/* Size badge / picker */}
             <div className="relative">
               <button
@@ -291,12 +340,43 @@ export function CompactInput({ onSubmit, disabled, activeCount = 0, remixData, o
 
             {/* Active count indicator */}
             {activeCount > 0 && (
-              <span className="text-[10px] text-zinc-600 ml-auto">
+              <span className="text-[10px] text-zinc-600">
                 {activeCount} active
               </span>
             )}
+
+            {/* Prompt quick actions — pushed to the right */}
+            <div className="flex items-center gap-1 ml-auto">
+              <button
+                onClick={handlePaste}
+                className="h-8 px-2 flex items-center gap-1 rounded-md
+                         text-zinc-500 active:text-emerald-400 active:bg-white/5 transition-colors"
+              >
+                <Clipboard className="h-3.5 w-3.5" />
+                <span className="text-[11px]">粘贴</span>
+              </button>
+              {prompt && (
+                <>
+                  <button
+                    onClick={handleCopy}
+                    className={`h-8 px-2 flex items-center gap-1 rounded-md
+                             transition-colors ${copyFlash ? 'text-emerald-400' : 'text-zinc-500 active:text-emerald-400 active:bg-white/5'}`}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    <span className="text-[11px]">{copyFlash ? '已复制' : '复制'}</span>
+                  </button>
+                  <button
+                    onClick={handleClear}
+                    className="h-8 px-2 flex items-center gap-1 rounded-md
+                             text-zinc-500 active:text-red-400 active:bg-white/5 transition-colors"
+                  >
+                    <Eraser className="h-3.5 w-3.5" />
+                    <span className="text-[11px]">清空</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        )}
       </div>
     </div>
   )

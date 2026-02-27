@@ -8,6 +8,7 @@ import { ImageDetail } from '@/components/shared/ImageDetail'
 import { toggleEntryLike, softDeleteEntry } from '@/lib/firestore'
 import { Heart, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Image from 'next/image'
 import Link from 'next/link'
 import type { Entry, EntryImage } from '@/types'
 
@@ -24,14 +25,17 @@ export default function GalleryPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const { entries, loading } = useEntries(filter)
 
-  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
+
+  // Derive selected entry from live entries list so it stays in sync
+  const selectedEntry = entries.find(e => e.id === selectedEntryId) ?? null
 
   const firstDoneImage = (entry: Entry): EntryImage | undefined =>
     entry.images.find((i) => i.status === 'done')
 
   const handleImageClick = useCallback((entry: Entry) => {
-    setSelectedEntry(entry)
+    setSelectedEntryId(entry.id)
     setViewerOpen(true)
   }, [])
 
@@ -43,19 +47,19 @@ export default function GalleryPage() {
   const handleDelete = useCallback(async (entry: Entry) => {
     await softDeleteEntry(entry.id)
     setViewerOpen(false)
-    setSelectedEntry(null)
+    setSelectedEntryId(null)
   }, [])
 
   const handleRemix = useCallback((entry: Entry) => {
     setViewerOpen(false)
-    setSelectedEntry(null)
+    setSelectedEntryId(null)
     startRemix(entry)
   }, [startRemix])
 
   return (
     <div className="min-h-dvh sd-noise relative">
       {/* Sticky header */}
-      <header className="sticky top-0 z-30 border-b border-white/5 bg-zinc-950/90 backdrop-blur-xl px-4 pt-4 pb-3">
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-zinc-950 px-4 pt-4 pb-3">
         <h1 className="text-xl font-bold tracking-tight mb-3">
           <span className="sd-text-gradient">SeeDream</span>
         </h1>
@@ -96,23 +100,25 @@ export default function GalleryPage() {
                     className="relative w-full overflow-hidden rounded-lg border border-white/5 bg-zinc-900 cursor-pointer text-left"
                     onClick={() => handleImageClick(entry)}
                   >
-                    <img
+                    <Image
                       src={img.url}
                       alt={entry.prompt}
-                      className="w-full object-cover"
-                      loading="lazy"
+                      width={img.width}
+                      height={img.height}
+                      className="w-full h-auto object-cover"
+                      sizes="(min-width: 768px) 25vw, 50vw"
                     />
 
                     {/* Liked badge */}
                     {entry.liked && (
-                      <div className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 backdrop-blur-sm">
+                      <div className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90">
                         <Heart className="h-3 w-3 fill-white text-white" />
                       </div>
                     )}
 
                     {/* Multi-image badge */}
                     {entry.images.filter((i) => i.status === 'done').length > 1 && (
-                      <div className="absolute right-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm sd-mono">
+                      <div className="absolute right-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white sd-mono">
                         {entry.images.filter((i) => i.status === 'done').length}
                       </div>
                     )}

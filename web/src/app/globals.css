@@ -193,10 +193,9 @@
   font-family: var(--font-space-mono), ui-monospace, monospace;
 }
 
-/* Glass card effect */
+/* Glass card effect — solid bg to avoid expensive backdrop-filter repaints */
 .sd-glass {
-  background: rgba(24, 24, 27, 0.8);
-  backdrop-filter: blur(12px);
+  background: rgba(24, 24, 27, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 

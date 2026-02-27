@@ -5,6 +5,7 @@ import {
   User as FirebaseUser,
   signInWithPopup,
   signOut as firebaseSignOut,
+  signInAnonymously,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -29,6 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // Auto sign-in anonymously — no user interaction needed
+        signInAnonymously(auth).catch((err) => {
+          console.error('Anonymous sign-in failed:', err)
+          setLoading(false)
+        })
+        return // onAuthStateChanged will fire again with the anonymous user
+      }
       setUser(user)
       setLoading(false)
     })

@@ -2,6 +2,7 @@
 """
 BytePlus Ark 图像生成脚本
 支持三种模式：纯文本生成、单图参考、多图参考
+基于 SeeDream 5.0-lite 模型
 """
 
 import os
@@ -52,7 +53,7 @@ def example_text_to_image(client):
     print("\n=== 示例1: 四季庭院插图 ===\n")
 
     response = client.images.generate(
-        model="ep-20260123220136-f8bx7",
+        model="ep-20260226145427-hdhqc",
         prompt="Generate a series of 4 coherent illustrations focusing on the same corner of a courtyard across the four seasons, presented in a unified style that captures the unique colors, elements, and atmosphere of each season.",
         sequential_image_generation="auto",
         sequential_image_generation_options=SequentialImageGenerationOptions(max_images=4),
@@ -70,7 +71,7 @@ def example_single_image_reference(client):
     print("\n=== 示例2: 品牌视觉设计系统 ===\n")
 
     response = client.images.generate(
-        model="ep-20260123220136-f8bx7",
+        model="ep-20260226145427-hdhqc",
         prompt="Using this LOGO as a reference, create a visual design system for an outdoor sports brand named GREEN, including packaging bags, hats, paper boxes, wristbands, lanyards, etc. Main visual tone is green, with a fun, simple, and modern style.",
         image="https://ark-doc.tos-ap-southeast-1.bytepluses.com/doc_image/seedream4_imageToimages.png",
         sequential_image_generation="auto",
@@ -89,7 +90,7 @@ def example_multi_image_reference(client):
     print("\n=== 示例3: 游乐园过山车场景 ===\n")
 
     response = client.images.generate(
-        model="ep-20260123220136-f8bx7",
+        model="ep-20260226145427-hdhqc",
         prompt="Generate 3 images of a girl and a cow plushie happily riding a roller coaster in an amusement park, depicting morning, noon, and night.",
         image=[
             "https://ark-doc.tos-ap-southeast-1.bytepluses.com/doc_image/seedream4_imagesToimages_1.png",

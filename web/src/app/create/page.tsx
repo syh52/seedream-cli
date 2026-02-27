@@ -5,12 +5,11 @@ import { Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRemix } from '@/contexts/RemixContext'
 import { useCreateEntry } from '@/hooks/useCreateEntry'
-import { subscribeToActiveEntries, toggleEntryLike, softDeleteEntry } from '@/lib/firestore'
+import { subscribeToAllEntries, toggleEntryLike, softDeleteEntry } from '@/lib/firestore'
 import { CompactInput } from '@/components/create/CompactInput'
 import { EntryCard } from '@/components/create/EntryCard'
 import { ImageDetail } from '@/components/shared/ImageDetail'
 import type { Entry, GenerateMode } from '@/types'
-import { MAX_CONCURRENT_ENTRIES } from '@/types'
 
 function CreateContent() {
   const { user } = useAuth()
@@ -20,22 +19,22 @@ function CreateContent() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  // Image detail state
-  const [viewerEntry, setViewerEntry] = useState<Entry | null>(null)
+  // Image detail state — store ID, derive entry from live list
+  const [viewerEntryId, setViewerEntryId] = useState<string | null>(null)
   const [viewerIndex, setViewerIndex] = useState(0)
   const [viewerOpen, setViewerOpen] = useState(false)
+  const viewerEntry = entries.find(e => e.id === viewerEntryId) ?? null
 
-  // Subscribe to entries
+  // Subscribe to all entries (single-user app, no userId filter)
   useEffect(() => {
     if (!user) return
-    const unsub = subscribeToActiveEntries(user.uid, (data) => {
+    const unsub = subscribeToAllEntries((data) => {
       setEntries(data)
     })
     return unsub
   }, [user])
 
   const activeCount = entries.filter((e) => e.status === 'active').length
-  const canSubmit = activeCount < MAX_CONCURRENT_ENTRIES && !!user
 
   const handleSubmit = useCallback(async (params: {
     prompt: string; mode: GenerateMode; size: string;
@@ -53,9 +52,8 @@ function CreateContent() {
   const handleImageClick = useCallback((entry: Entry, index: number) => {
     const doneImages = entry.images.filter((i) => i.status === 'done')
     if (doneImages.length === 0) return
-    // Find the done-image index corresponding to the absolute index
     const doneIndex = entry.images.slice(0, index + 1).filter((i) => i.status === 'done').length - 1
-    setViewerEntry(entry)
+    setViewerEntryId(entry.id)
     setViewerIndex(Math.max(0, doneIndex))
     setViewerOpen(true)
   }, [])
@@ -77,7 +75,7 @@ function CreateContent() {
 
   const handleRemix = useCallback((entry: Entry) => {
     setViewerOpen(false)
-    setViewerEntry(null)
+    setViewerEntryId(null)
     startRemix(entry)
   }, [startRemix])
 
@@ -122,7 +120,6 @@ function CreateContent() {
       {/* Input bar */}
       <CompactInput
         onSubmit={handleSubmit}
-        disabled={!canSubmit}
         activeCount={activeCount}
         remixData={remixData}
         onRemixClear={clearRemix}

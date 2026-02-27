@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -56,7 +57,8 @@ export function subscribeToGallery(
       where('liked', '==', true),
       where('status', '==', 'done'),
       where('deleted', '==', false),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(100)
     )
   } else {
     // "all" - show done + not deleted
@@ -64,7 +66,8 @@ export function subscribeToGallery(
       collection(db, ENTRIES),
       where('status', '==', 'done'),
       where('deleted', '==', false),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(100)
     )
   }
 
@@ -77,16 +80,15 @@ export function subscribeToGallery(
   })
 }
 
-// Active entries subscription for Create page
-export function subscribeToActiveEntries(
-  userId: string,
+// All entries subscription for Create page (single-user app, no userId filter)
+export function subscribeToAllEntries(
   callback: (entries: Entry[]) => void
 ): () => void {
   const q = query(
     collection(db, ENTRIES),
-    where('userId', '==', userId),
     where('deleted', '==', false),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    limit(50)
   )
 
   return onSnapshot(q, (snapshot) => {
